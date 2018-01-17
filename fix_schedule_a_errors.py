@@ -15,7 +15,7 @@ while True:
 	linenum += 1 # Increase the line number by one as each line is read
 	line = infile.readline() # Read the file line by line
 	line = line.replace("\r", "") # Remove carriage returns
-	line = line.replace("\\","") # What is this doing?
+	line = line.replace("\\", "") # What is this doing?
 
 	if not line: # Stop when all lines have been read
 		break
@@ -29,7 +29,7 @@ while True:
 		filler = "".join(pipes)
 		line = line + filler # Add the missing pipes to the end of the problem line
 
-	outfile.write(line + "\n") # Populate the file
+	outfile.write(line) # Populate the file
 
 print(str(problems) + " Schedule A problem records fixed.")
 
