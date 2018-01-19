@@ -1,0 +1,8 @@
+bin
+include
+lib
+527*
+FullDataFile.txt
+.Python
+*.txt
+pip-selfcheck.json
