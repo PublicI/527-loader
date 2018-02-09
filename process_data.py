@@ -1,74 +1,70 @@
-# This script prepares bulk data from the IRS collecting filings by 527 organizations
-# for loading into a database.
+# This script splits an IRS data file containing records on the activities
+# of 527 organizations into files suitable for loading into database tables.
 
-data_file = "var/IRS/data/scripts/pofd/download/FullDataFile.txt"
-infile = open(data_file,"r", encoding="utf-8")
+from io import open
 
-outfiles = {}
+fields_per_type = {
+    'H': 5,
+    'F': 5,
+    '1': 44,
+    '2': 50,
+    'A': 18,
+    'B': 18,
+    'D': 14,
+    'E': 6,
+    'R': 14
+}
 
-# Create the files
-# outfile_headers = open("8872_headers.txt", "w")
-# outfile_a = open("8872_schedule_a.txt", "w")
-# outfile_b = open("8872_schedule_b.txt", "w")
+path = 'var/IRS/data/scripts/pofd/download/FullDataFile.txt'
+file = open(path, 'r', encoding='utf-8')
 
-full_line = ""
-append = False
+out_files = {}
+out_line = ''
+line_count = 0
 
-for line in infile: # Read the file line by line
-    # Remove carriage returns
-    line = line.replace("\r","")
-    line = line.replace("\n", "")
-    line = line.replace("\\", "")
 
-    if append:
-        full_line += line
-    else:
-        full_line = line
-
-    append = False
-
-    values = full_line.split("|") # Separate the column values by pipe
-    linetype = values[0] # Use the value of the first column to determine the line type
-
-    # ignore status messages and multi-line descriptions
-    # if len(linetype) > 2:
-    #     continue
-
-    # fix problem lines
-    count = len(values)
-    #expected = 18
-    #if linetype == "A" or linetype == "B":
-    #    expected = 18
-    #else if linetype == "H":
-    #    expected = 4
-    #else if linetype == "1":
-    #    expected = 44
-    #else if linetype == "D" or linetype == 'R':
-    #    expected = 13
-    #else if linetype == "":
-
-    #if count < expected:
-    #    append = True
-    #    continue
-
-    print(linetype + "," + str(count))
-
-    # if (linetype == "A" or linetype == "B") and count > expected:
-    #    print(full_line)
-
-        # difference = expected - count # Calculate the number of missing pipes
-        # pipes = ["|"] * difference
-        # filler = "".join(pipes)
-        # print(line)
-        # line = line + filler # Add the missing pipes to the end of the problem line
-
+def writeLine(line):
     if line[-1:] == '|':
         line = line[:-1]
 
-    # if linetype not in outfiles:
-        # outfiles[linetype] = open("line_" + linetype + ".txt", "w")
+    if line_type not in out_files:
+        out_files[line_type] = open('line_' + line_type + '.txt', 'w')
 
-    #outfiles[linetype].write(line)
-    #outfiles[linetype].write("\n")
+    out_files[line_type].write(line + '\n')
 
 
+for line in file:
+    # remove new line characters
+    line = line.replace('\r', '')
+    line = line.replace('\n', '')
+
+    values = (out_line + line).split('|')  # separate the column values by pipe
+    line_type = values[0]  # use the first column value as the line type
+
+    if line_type not in fields_per_type:
+        print('unrecognized line type: ' + line_type)
+        continue
+
+    fields = len(values)
+    expected = fields_per_type[line_type]
+
+    if fields < expected:
+        out_line += line
+        continue
+    elif fields == expected:
+        writeLine(out_line + line)
+        line_count += 1
+    else:  # truncated line, appending later lines didn't help, so add pipes
+        difference = expected - fields  # calculate the number of missing pipes
+        pipes = ['|'] * difference
+        filler = ''.join(pipes)
+        out_line = out_line + filler  # add missing pipes
+        writeLine(out_line)
+        writeLine(line)
+        line_count += 2
+
+    if line_type == 'F' and int(values[-2]) != line_count-2:
+        print('record count mismatch: wrote ' +
+              str(line_count-2) + ' but expected ' + values[-2])
+
+    out_line = ''
