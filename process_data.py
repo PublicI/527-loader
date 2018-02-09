@@ -1,51 +1,70 @@
-# The purpose of this script is to process 527 organizations' 8872 header (committee information), 8872 schedule A (contributions) and 8872 schedule B (expenditures) records.
+# This script splits an IRS data file containing records on the activities
+# of 527 organizations into files suitable for loading into database tables.
 
-import time
+from io import open
 
-line_2_header = "Record Type|Form Type|Form ID Number|PERIOD Begin Date|PERIOD End Date|Initial Report Indicator|Amended Report Indicator|Final Report Indicator|Change of Address Indicator|ORGANIZATION NAME|EIN|MAILING ADDRESS 1|MAILING ADDRESS 2|MAILING ADDRESS CITY|MAILING ADDRESS STATE|MAILING ADDRESS ZIP CODE|MAILING ADDRESS ZIP EXT|E_MAIL ADDRESS|ORG FORMATION DATE|CUSTODIAN NAME|CUSTODIAN ADDRESS 1|CUSTODIAN ADDRESS 2|CUSTODIAN ADDRESS CITY|CUSTODIAN ADDRESS STATE|CUSTODIAN ADDRESS ZIP CODE|CUSTODIAN ADDRESS ZIP EXT|CONTACT PERSON NAME|CONTACT ADDRESS 1|CONTACT ADDRESS 2|CONTACT ADDRESS CITY|CONTACT ADDRESS STATE|CONTACT ADDRESS ZIP CODE|CONTACT ADDRESS ZIP EXT|BUSINESS ADDRESS 1|BUSINESS ADDRESS 2|BUSINESS ADDRESS CITY|BUSINESS ADDRESS STATE|BUSINESS ADDRESS ZIP CODE|BUSINESS ADDRESS ZIP EXT|QTR INDICATOR|MONTHLY RPT MONTH|PRE ELECT TYPE|PRE or POST ELECT DATE|PRE or POST ELECT STATE|SCHED_A_IND|TOTAL_SCHED_A|SCHED_B_IND|TOTAL_SCHED_B|INSERT_DATETIME\n"
+fields_per_type = {
+    'H': 5,
+    'F': 5,
+    '1': 44,
+    '2': 50,
+    'A': 18,
+    'B': 18,
+    'D': 14,
+    'E': 6,
+    'R': 14
+}
 
-line_a_header = "Record Type|Form ID Number|SCHED A ID|ORG NAME|EIN|CONTRIBUTOR NAME|CONTRIBUTOR ADDRESS 1|CONTRIBUTOR ADDRESS 2|CONTRIBUTOR ADDRESS CITY|CONTRIBUTOR ADDRESS STATE|CONTRIBUTOR ADDRESS ZIP CODE|CONTRIBUTOR ADDRESS ZIP EXT|CONTRIBUTOR EMPLOYER|CONTRIBUTION AMOUNT|CONTRIBUTOR OCCUPATION|AGG CONTRIBUTION YTD|CONTRIBUTION DATE\n"
+path = 'var/IRS/data/scripts/pofd/download/FullDataFile.txt'
+file = open(path, 'r', encoding='utf-8')
 
-line_b_header = "Record Type|Form ID Number|SCHED B ID|ORG NAME|EIN|RECIPIENT NAME|RECIPIENT ADDRESS 1|RECIPIENT ADDRESS 2|RECIPIENT ADDRESS CITY|RECIPIENT ADDRESS ST|RECIPIENT ADDRESS ZIP CODE|RECIPIENT ADDRESS ZIP EXT|RECIPIENT EMPLOYER|EXPENDITURE AMOUNT|RECIPIENT OCCUPATION|EXPENDITURE DATE|EXPENDITURE PURPOSE\n"
+out_files = {}
+out_line = ''
+line_count = 0
 
-data_file = "FullDataFile.txt"
-infile = open(data_file,"r", encoding="utf-8")
 
-# Create the files
-outfile_headers = open("8872_headers.txt", "w")
-outfile_headers.write(line_2_header)
+def writeLine(line):
+    if line[-1:] == '|':
+        line = line[:-1]
 
-outfile_a = open("8872_schedule_a.txt", "w")
-outfile_a.write(line_a_header)
+    if line_type not in out_files:
+        out_files[line_type] = open('line_' + line_type + '.txt', 'w')
 
-outfile_b = open("8872_schedule_b.txt", "w")
-outfile_b.write(line_b_header)
+    out_files[line_type].write(line + '\n')
 
-linecount = 0 # Set the line count at zero prior to writing data to the outfiles
 
-for line in infile: # Read the file line by line
-	linecount += 1 # Increase the line count by one as each line is written
+for line in file:
+    # remove new line characters
+    line = line.replace('\r', '')
+    line = line.replace('\n', '')
 
-	# Remove carriage returns
-	line = line.replace("\r","")
-	line = line.replace("\n", "")
-	print("Processed " + str(linecount) + " lines.") # Print the number of lines processed 
-	values = line.split("|") # Separate the column values by pipe
-	linetype = values[0] # Use the value of the first column to determine the line type
+    values = (out_line + line).split('|')  # separate the column values by pipe
+    line_type = values[0]  # use the first column value as the line type
 
-	# Populate the files
-	if linetype == "2":
-		outfile_headers.write(line)
-		outfile_headers.write("\n")
+    if line_type not in fields_per_type:
+        print('unrecognized line type: ' + line_type)
+        continue
 
-	elif linetype == "A":
-		outfile_a.write(line)
-		outfile_a.write("\n")
+    fields = len(values)
+    expected = fields_per_type[line_type]
 
-	elif linetype == "B":
-		outfile_b.write(line)
-		outfile_b.write("\n")
+    if fields < expected:
+        out_line += line
+        continue
+    elif fields == expected:
+        writeLine(out_line + line)
+        line_count += 1
+    else:  # truncated line, appending later lines didn't help, so add pipes
+        difference = expected - fields  # calculate the number of missing pipes
+        pipes = ['|'] * difference
+        filler = ''.join(pipes)
+        out_line = out_line + filler  # add missing pipes
+        writeLine(out_line)
+        writeLine(line)
+        line_count += 2
 
-print("Data processed.")
+    if line_type == 'F' and int(values[-2]) != line_count-2:
+        print('record count mismatch: wrote ' +
+              str(line_count-2) + ' but expected ' + values[-2])
 
-time.sleep(3)
+    out_line = ''
