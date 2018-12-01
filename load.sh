@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-wget https://forms.irs.gov/app/pod/dataDownload/fullData
+wget -nv https://forms.irs.gov/app/pod/dataDownload/fullData
 unzip fullData
 python process_data.py
 psql -f create.sql
