@@ -1,0 +1,12 @@
+pipeline:
+  load-527s:
+    image: publicintegrity/loader
+    secrets: [ pgport, pgpassword, pguser, pgdatabase, pghost ]
+    commands:
+      - bash load.sh
+
+  slack:
+    image: plugins/slack
+    secrets: [ slack_webhook ]
+    when:
+      status: [ success, failure ]
