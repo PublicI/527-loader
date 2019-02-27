@@ -2,6 +2,8 @@
 # of 527 organizations into files suitable for loading into database tables.
 
 from io import open
+import sys
+
 
 fields_per_type = {
     'H': 5,
@@ -14,8 +16,8 @@ fields_per_type = {
     'E': 6,
     'R': 14
 }
-
-path = 'var/IRS/data/scripts/pofd/download/FullDataFile.txt'
+print(sys.argv[1])
+path = sys.argv[1]
 file = open(path, 'r', encoding='utf-8')
 
 out_files = {}

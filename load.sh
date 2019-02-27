@@ -2,13 +2,11 @@
 
 set -euo pipefail
 
-wget -nv https://forms.irs.gov/app/pod/dataDownload/fullData
-unzip fullData
-python process_data.py
-psql -f create.sql
-psql -c "COPY irs527_filings FROM STDIN WITH CSV DELIMITER '|' QUOTE E'\b'" < "line_2.txt"
-psql -c "COPY irs527_contributions FROM STDIN WITH CSV DELIMITER '|' QUOTE E'\b'" < "line_A.txt"
-psql -c "COPY irs527_expenditures FROM STDIN WITH CSV DELIMITER '|' QUOTE E'\b'" < "line_B.txt"
-rm -rf var
-rm *.txt
-rm fullData
+mkdir -p data/download
+./transforms/download.sh ./data/download/
+mkdir -p data/unzip
+./transforms/unzip.sh ./data/download ./data/unzip
+mkdir -p data/process
+./transforms/process.sh ./data/unzip ./data/process
+mkdir -p data/load
+./transforms/load.sh ./data/process ./data/load
